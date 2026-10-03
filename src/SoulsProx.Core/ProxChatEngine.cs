@@ -47,6 +47,7 @@ public sealed class ProxChatEngine : IDisposable
 
     private MicCapture? _mic;
     private AudioOutput? _output;
+    private volatile EchoCanceller? _echo;
     private ProximitySettings _proximity;
     private volatile PeerReport? _friendReport;
     private long _friendReportTicks;
@@ -93,6 +94,9 @@ public sealed class ProxChatEngine : IDisposable
     public string MicStatus { get; private set; } = "";
     public string OutputStatus { get; private set; } = "";
     public bool MicOk { get; private set; }
+    public string EchoStatus { get; private set; } = "";
+    /// <summary>False if echo cancellation / noise suppression was wanted but couldn't start.</summary>
+    public bool EchoOk { get; private set; } = true;
     public bool OutputOk { get; private set; }
     public FriendStatus Friend => Volatile.Read(ref _friendStatus);
     public SpatialResult? Beacon => _beaconStatus;
@@ -149,7 +153,8 @@ public sealed class ProxChatEngine : IDisposable
         _saveTimer.Change(SaveDelay, Timeout.InfiniteTimeSpan);
         _proximity = updated.ToProximity();
         ApplyToComponents(updated);
-        if (old.MicDeviceId != updated.MicDeviceId || old.OutputDeviceId != updated.OutputDeviceId || old.NoiseSuppression != updated.NoiseSuppression)
+        if (old.MicDeviceId != updated.MicDeviceId || old.OutputDeviceId != updated.OutputDeviceId
+            || old.NoiseSuppression != updated.NoiseSuppression || old.EchoCancellation != updated.EchoCancellation)
             RestartAudio();
     }
 
@@ -173,10 +178,20 @@ public sealed class ProxChatEngine : IDisposable
             _mic = null;
             _output?.Dispose();
             _output = null;
+            _echo?.Dispose();
+            _echo = null;
+
+            // WebRTC echo cancellation + noise suppression. Everything we play is its echo reference.
+            var echo = EchoCanceller.TryCreate(Settings.EchoCancellation, Settings.NoiseSuppression, out var echoError);
+            EchoStatus = echo is not null ? $"echo cancellation {(echo.EchoEnabled ? "on" : "off")}, noise suppression {(echo.NoiseSuppressionEnabled ? "on" : "off")}"
+                : echoError is null ? "off" : $"unavailable ({echoError})";
+            EchoOk = echo is not null || echoError is null;
+            if (echoError is not null) Log.Error($"Echo canceller: {echoError}");
 
             try
             {
-                _output = new AudioOutput(Settings.OutputDeviceId);
+                _output = new AudioOutput(Settings.OutputDeviceId, played => _echo?.ProcessRender(played));
+                if (echo is not null) echo.StreamDelayMs = _output.LatencyMs + 20;
                 _output.AddInput(_friendVoice);
                 _output.AddInput(_beaconVoice);
                 OutputStatus = _output.DeviceName;
@@ -191,7 +206,9 @@ public sealed class ProxChatEngine : IDisposable
 
             try
             {
-                _mic = new MicCapture(Settings.MicDeviceId, Settings.NoiseSuppression);
+                // Windows' own "communications" processing is deliberately not used: it can make Windows
+                // turn other apps (the game) down while we run. WebRTC does the processing instead.
+                _mic = new MicCapture(Settings.MicDeviceId, communicationsMode: false);
                 _mic.FrameCaptured += OnMicFrame;
                 _mic.Start();
                 MicStatus = _mic.DeviceName;
@@ -203,13 +220,15 @@ public sealed class ProxChatEngine : IDisposable
                 MicOk = false;
                 Log.Error("Microphone", ex);
             }
-            Log.Info($"Audio: mic '{MicStatus}', output '{OutputStatus}'");
+            _echo = echo;
+            Log.Info($"Audio: mic '{MicStatus}', output '{OutputStatus}', {EchoStatus}");
         }
     }
 
     /// <summary>Runs on the audio capture thread for every 20 ms of microphone audio.</summary>
     private void OnMicFrame(float[] frame)
     {
+        _echo?.ProcessCapture(frame);
         float level = VoiceGate.LevelDb(frame);
         MicLevelDb = level;
         bool radio = _hotkeys.RadioDown;
@@ -326,6 +345,7 @@ public sealed class ProxChatEngine : IDisposable
         {
             _mic?.Dispose();
             _output?.Dispose();
+            _echo?.Dispose();
         }
         Link.Dispose();
         Game.Dispose();

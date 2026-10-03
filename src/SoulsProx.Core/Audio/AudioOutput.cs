@@ -50,14 +50,19 @@ public sealed class AudioOutput : IDisposable
 
     public string DeviceName => _device.FriendlyName;
 
+    /// <summary>Output buffering in milliseconds (how far ahead of the speakers we render).</summary>
+    public int LatencyMs => _player.LatencyMilliseconds;
+
     /// <param name="deviceId">Endpoint id, or null for the Windows default output.</param>
-    public AudioOutput(string? deviceId)
+    /// <param name="onRendered">Receives everything we play, as mono 48 kHz, just before it goes to the device (the echo reference).</param>
+    public AudioOutput(string? deviceId, ReadOnlySpanAction<float>? onRendered = null)
     {
         using var enumerator = new MMDeviceEnumerator();
         _device = AudioDevices.Open(enumerator, deviceId, DataFlow.Render);
         _player = new WasapiPlayerBuilder().WithDevice(_device).WithSharedMode().WithLatency(60).Build();
 
         ISampleProvider source = new SoftLimiter(_mixer);
+        if (onRendered is not null) source = new RenderTap(source, onRendered);
         int deviceRate = _player.DeviceMixFormat.SampleRate;
         if (deviceRate != VoiceFormat.SampleRate) source = new WdlResamplingSampleProvider(source, deviceRate);
         _player.Init(new SampleToWaveProvider(source));
@@ -73,6 +78,24 @@ public sealed class AudioOutput : IDisposable
         try { _player.Stop(); } catch (Exception) { }
         _player.Dispose();
         _device.Dispose();
+    }
+}
+
+/// <summary>Hands a mono copy of everything played to a callback (used as the echo canceller's reference).</summary>
+internal sealed class RenderTap(ISampleProvider source, ReadOnlySpanAction<float> onMono) : ISampleProvider
+{
+    private float[] _mono = new float[4096];
+
+    public WaveFormat WaveFormat => source.WaveFormat;
+
+    public int Read(Span<float> buffer)
+    {
+        int n = source.Read(buffer);
+        int frames = n / 2;
+        if (_mono.Length < frames) _mono = new float[frames * 2];
+        for (int i = 0; i < frames; i++) _mono[i] = (buffer[2 * i] + buffer[2 * i + 1]) * 0.5f;
+        onMono(_mono.AsSpan(0, frames));
+        return n;
     }
 }
 

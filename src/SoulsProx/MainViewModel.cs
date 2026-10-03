@@ -252,6 +252,17 @@ public sealed class MainViewModel : ObservableObject
         set => Update(s => s with { NoiseSuppression = value }, nameof(NoiseSuppression));
     }
 
+    public bool EchoCancellation
+    {
+        get => S.EchoCancellation;
+        set => Update(s => s with { EchoCancellation = value }, nameof(EchoCancellation));
+    }
+
+    private string _audioProblem = "";
+    /// <summary>Shown in settings if echo cancellation / noise suppression couldn't start.</summary>
+    public string AudioProblem { get => _audioProblem; private set { if (Set(ref _audioProblem, value)) OnPropertyChanged(nameof(HasAudioProblem)); } }
+    public bool HasAudioProblem => AudioProblem.Length > 0;
+
     public double FriendVolume
     {
         get => S.FriendVolume * 100;
@@ -362,6 +373,7 @@ public sealed class MainViewModel : ObservableObject
         RefreshFriend(friend);
         RefreshMic();
         RefreshConnect(friend);
+        AudioProblem = _engine.EchoOk ? "" : $"Echo cancellation / noise suppression {_engine.EchoStatus}.";
 
         BeaconText = _beaconMessage.Length > 0 ? _beaconMessage
             : _engine.Beacon is { } b ? $"Beacon {b.Distance:F1} m away, {b.Gain * 100:F0}% volume"
@@ -473,6 +485,7 @@ public sealed class MainViewModel : ObservableObject
             $"Monitor: {_engine.Game.Status}",
             $"Mic: {_engine.MicStatus}",
             $"Output: {_engine.OutputStatus}",
+            $"Processing: {_engine.EchoStatus}",
             $"UDP {_engine.Link.LocalPort}  LAN {_engine.Link.LanEndpoint}  public {_engine.Link.PublicEndpoint?.ToString() ?? "?"}",
             $"Link: {f.Link} {f.Endpoint}",
             $"Friend: {f.Report}",

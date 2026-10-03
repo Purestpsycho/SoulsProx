@@ -15,8 +15,10 @@ public sealed record AppSettings
     // Devices
     public string? MicDeviceId { get; init; }
     public string? OutputDeviceId { get; init; }
-    /// <summary>Use Windows' voice-call processing on the mic (noise suppression, echo cancellation).</summary>
+    /// <summary>Remove background noise from the mic (WebRTC noise suppressor).</summary>
     public bool NoiseSuppression { get; init; } = true;
+    /// <summary>Remove the friend's voice from the mic if it leaks out of headphones/speakers (WebRTC AEC3).</summary>
+    public bool EchoCancellation { get; init; } = true;
 
     // Talking
     public TalkMode TalkMode { get; init; } = TalkMode.VoiceActivation;

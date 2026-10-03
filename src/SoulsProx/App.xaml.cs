@@ -1,4 +1,6 @@
+using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Windows;
 using SoulsProx.Settings;
 
@@ -12,6 +14,7 @@ namespace SoulsProx.App;
 public partial class App : Application
 {
     private ProxChatEngine? _engine;
+    private Mutex? _singleInstance;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -23,6 +26,19 @@ public partial class App : Application
         {
             if (e.Args[i] == "--profile") profile = e.Args[i + 1];
             if (e.Args[i] == "--port") port = int.Parse(e.Args[i + 1], CultureInfo.InvariantCulture);
+        }
+        string title = string.IsNullOrEmpty(profile) ? "SoulsProx" : $"SoulsProx ({profile})";
+
+        // Two copies sharing one identity confuse the friend's side (they'd bounce between both),
+        // so a second launch just brings the existing window forward.
+        _singleInstance = new Mutex(true, $@"Local\SoulsProx-{profile ?? "default"}", out bool firstInstance);
+        if (!firstInstance)
+        {
+            BringExistingWindowForward(title);
+            _singleInstance.Dispose();
+            _singleInstance = null;
+            Shutdown();
+            return;
         }
 
         Log.Init(AppSettings.Directory, string.IsNullOrEmpty(profile) ? "log.txt" : $"log-{profile}.txt");
@@ -36,8 +52,7 @@ public partial class App : Application
         var settingsPath = AppSettings.FilePath(profile);
         _engine = new ProxChatEngine(AppSettings.Load(settingsPath), settingsPath, port);
 
-        var window = new MainWindow(new MainViewModel(_engine));
-        if (!string.IsNullOrEmpty(profile)) window.Title = $"SoulsProx ({profile})";
+        var window = new MainWindow(new MainViewModel(_engine)) { Title = title };
         MainWindow = window;
         window.Show();
         _ = _engine.StartAsync();
@@ -46,6 +61,30 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _engine?.Dispose();
+        if (_singleInstance is not null)
+        {
+            _singleInstance.ReleaseMutex();
+            _singleInstance.Dispose();
+        }
         base.OnExit(e);
     }
+
+    private static void BringExistingWindowForward(string title)
+    {
+        int me = Environment.ProcessId;
+        foreach (var p in Process.GetProcessesByName("SoulsProx"))
+        {
+            using (p)
+            {
+                if (p.Id == me || p.MainWindowHandle == 0 || p.MainWindowTitle != title) continue;
+                if (IsIconic(p.MainWindowHandle)) ShowWindow(p.MainWindowHandle, 9 /* SW_RESTORE */);
+                SetForegroundWindow(p.MainWindowHandle);
+                return;
+            }
+        }
+    }
+
+    [DllImport("user32.dll")] private static extern bool SetForegroundWindow(nint hwnd);
+    [DllImport("user32.dll")] private static extern bool ShowWindow(nint hwnd, int cmd);
+    [DllImport("user32.dll")] private static extern bool IsIconic(nint hwnd);
 }

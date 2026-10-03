@@ -216,7 +216,11 @@
                             </DockPanel>
                             <Slider Minimum="-70" Maximum="-10" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding Threshold}" />
                         </StackPanel>
-                        <CheckBox Content="Noise suppression" IsChecked="{Binding NoiseSuppression}" Margin="0,8,0,0" />
+                        <CheckBox Content="Echo cancellation" IsChecked="{Binding EchoCancellation}" Margin="0,8,0,0"
+                                  ToolTip="Stops your friend hearing themselves if their voice leaks from your headphones into your mic" />
+                        <CheckBox Content="Noise suppression" IsChecked="{Binding NoiseSuppression}" />
+                        <TextBlock Text="{Binding AudioProblem}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap" FontSize="11" Margin="0,4,0,0"
+                                   Visibility="{Binding HasAudioProblem, Converter={StaticResource Visible}}" />
 
                         <Border Style="{StaticResource Divider}" Margin="0,14,0,0" />
 

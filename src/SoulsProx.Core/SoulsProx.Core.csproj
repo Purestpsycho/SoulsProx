@@ -11,6 +11,14 @@
   <ItemGroup>
     <PackageReference Include="Concentus" Version="2.2.2" />
     <PackageReference Include="NAudio.Wasapi" Version="3.1.0" />
+    <!-- Only the native WebRTC audio-processing DLL is used from this package (see EchoCanceller.cs),
+         so download it without referencing its managed assembly or the SoundFlow framework. -->
+    <PackageDownload Include="SoundFlow.Extensions.WebRtc.Apm" Version="[1.4.0]" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="$(NuGetPackageRoot)soundflow.extensions.webrtc.apm\1.4.0\runtimes\win-x64\native\webrtc-apm.dll"
+          Link="webrtc-apm.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 
   <ItemGroup>
