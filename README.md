@@ -12,10 +12,10 @@ SoulsProx is a small app you run next to the game. It **only reads** the game's 
 2. Run it.
    - If Windows says *"Windows protected your PC"*, click **More info → Run anyway**. This happens because the app isn't code-signed.
    - If Windows Firewall asks, click **Allow**. Voice can't get through otherwise.
-3. Pick your **Microphone** and **Output** (headphones).
-4. Click **Copy** next to *Your code* and send it to your friend on Discord.
-5. Paste your friend's code into **Friend's code** and click **Connect**.
-6. Wait for *Status → Friend* to say you're connected. You both have to paste each other's codes.
+3. Click the **⚙ gear** (top left) and pick your **Microphone** and **Speaker** (headphones). Press ← or Esc to go back.
+4. Click the **+ circle** (*Connect a friend*). Click **Copy code** and send the code to your friend on Discord.
+5. Paste your friend's code under **Friend's code** and click **Connect**.
+6. When your friend's circle shows their name, you're connected. You both have to paste each other's codes.
 
 Your code normally stays the same between sessions, and the app reconnects to your friend automatically next time. If you can't hear each other, swap codes again. Your internet address may have changed.
 
@@ -25,12 +25,13 @@ Then start the game the usual way (Seamless Co-op launcher) and play. SoulsProx 
 
 - **Use headphones.** Through speakers, your friend will hear themselves echo back.
 - **Turn off the game's own voice chat** and leave the Discord call, so you don't hear each other twice.
-- **Voice activation** is on by default. Watch the level bar and move the *Sensitivity* slider so the bar only turns green when you talk. You can also switch to **Push to talk** and pick a key, mouse button or controller button.
+- **Voice activity** is on by default. Watch the mic bar at the bottom of the window. In ⚙ Settings, move *Sensitivity* (the yellow line) so the bar only turns green when you talk. You can also switch to **Push to talk** and pick a key, mouse button or controller button.
 - **Radio key:** hold it to be heard at full volume wherever you are. It works like a walkie-talkie for when you split up.
-- **Full volume within / Silent beyond** set the distances. The defaults are 5 m and 35 m.
+- When your friend talks, their circle gets a green ring (purple when they use the radio). The bar under their name shows how loud they are right now.
+- **Full volume within / Silent beyond** (in ⚙ Settings) set the distances. The defaults are 5 m and 35 m.
 - **Far-away volume** above 0% means you can always faintly hear each other.
 - In menus and loading screens you talk normally, at full volume.
-- **Test beacon:** you can test alone. Load into the game, click *Drop test beacon here* and talk. You'll hear your own voice, delayed, coming from that spot. Walk away and turn the camera to check the fading and left/right.
+- **Test beacon:** you can test alone. Load into the game, open ⚙ Settings → Advanced → *Test beacon*, click **Drop here** and talk. You'll hear your own voice, delayed, coming from that spot. Walk away and turn the camera to check the fading and left/right.
 - If left and right sound backwards, tick **Swap left/right**.
 
 ## If you can't connect
@@ -39,10 +40,10 @@ Then start the game the usual way (Seamless Co-op launcher) and play. SoulsProx 
 - Some routers and VPNs block direct connections. If one of you uses a VPN, turn it off, or switch its NAT setting to "moderate" if it has one.
 - **Fallback with Tailscale** (free):
   1. Both install [Tailscale](https://tailscale.com) and join the same tailnet.
-  2. In *Friend address*, enter the friend's Tailscale IP followed by `:47800`, e.g. `100.101.102.103:47800`.
-  3. Click Connect again.
-- **Fallback with port forwarding:** one of you forwards **UDP port 47800** on their router to their PC. The other enters `their-public-ip:47800` in *Friend address*.
-- Click **Open log folder** and send `log.txt` to whoever is helping you.
+  2. Click the friend circle to open *Connect*. Under **If codes don't connect**, enter the friend's Tailscale IP followed by `:47800`, e.g. `100.101.102.103:47800`.
+  3. Click **Connect** again. You still need each other's codes; the address only changes where packets are sent.
+- **Fallback with port forwarding:** one of you forwards **UDP port 47800** on their router to their PC. The other enters `their-public-ip:47800` under *If codes don't connect*.
+- In ⚙ Settings → Advanced, click **Open log folder** and send `log.txt` to whoever is helping you.
 
 ## For developers
 
@@ -59,7 +60,7 @@ To try two copies on one PC, run `SoulsProx.exe --profile a` and `SoulsProx.exe 
 
 Layout:
 - `src/SoulsProx.Core`: game memory reading (`Games/`, `Memory/`), proximity math (`Proximity/`), audio: WASAPI via NAudio, Opus via Concentus (`Audio/`), and the encrypted UDP link with STUN hole punching (`Net/`).
-- `src/SoulsProx`: the WinForms window.
+- `src/SoulsProx`: the WPF window, styled after CrewLink (`App.xaml` theme, `MainWindow.xaml`, `MainViewModel.cs`).
 - `src/SoulsProx.Probe`: console diagnostics.
 
 ## Credits

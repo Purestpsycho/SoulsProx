@@ -1,0 +1,374 @@
+<Window x:Class="SoulsProx.App.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:SoulsProx.App"
+        Title="SoulsProx"
+        Width="300" Height="460"
+        WindowStyle="None" ResizeMode="CanMinimize" WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgBrush}" Foreground="{StaticResource TextBrush}"
+        FontFamily="Segoe UI Variable Text, Segoe UI" FontSize="13"
+        UseLayoutRounding="True" SnapsToDevicePixels="True">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Title bar: settings gear on the left, name in the middle, minimize/close on the right -->
+        <Border Background="{StaticResource TitleBarBrush}" MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid>
+                <Button Style="{StaticResource IconButton}" Content="&#xE713;" HorizontalAlignment="Left" Margin="3,0,0,0"
+                        Command="{Binding ToggleSettingsCommand}" ToolTip="Settings" AutomationProperties.Name="Settings" />
+                <TextBlock Text="SoulsProx" Foreground="{StaticResource PrimaryBrush}" FontWeight="SemiBold" FontSize="14"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,3,0">
+                    <Button Style="{StaticResource IconButton}" Content="&#xE921;" FontSize="10" Click="Minimize_Click" ToolTip="Minimize" AutomationProperties.Name="Minimize" />
+                    <Button Style="{StaticResource CloseButton}" Content="&#xE8BB;" FontSize="10" Click="Close_Click" ToolTip="Close" AutomationProperties.Name="Close" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ClipToBounds="True">
+            <!-- ============ Main view ============ -->
+            <Grid>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding AnyOverlayOpen}" Value="True">
+                                <Setter Property="Effect">
+                                    <Setter.Value>
+                                        <BlurEffect Radius="6" />
+                                    </Setter.Value>
+                                </Setter>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- Me -->
+                <Grid Margin="18,18,18,16">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <local:Avatar Width="80" Height="80" InitialSize="32"
+                                  Fill="{Binding MyFill}" Initial="{Binding MyInitial}" Talking="{Binding MyTalking}"
+                                  RingBrush="{StaticResource TalkBrush}" />
+                    <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding MyName}" FontSize="19" TextTrimming="CharacterEllipsis" />
+                        <Border Background="{StaticResource PillBrush}" CornerRadius="5" Padding="8,4" Margin="0,7,0,0" HorizontalAlignment="Left">
+                            <StackPanel Orientation="Horizontal">
+                                <Grid Width="12" Height="12" Margin="0,0,7,0" RenderTransformOrigin="0.5,0.5"
+                                      Visibility="{Binding GameWaiting, Converter={StaticResource Visible}}">
+                                    <Grid.RenderTransform>
+                                        <RotateTransform />
+                                    </Grid.RenderTransform>
+                                    <Path Stroke="{StaticResource PrimaryBrush}" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round"
+                                          Data="M 6,1 A 5,5 0 1 1 1,6" />
+                                    <Grid.Triggers>
+                                        <EventTrigger RoutedEvent="Loaded">
+                                            <BeginStoryboard>
+                                                <Storyboard RepeatBehavior="Forever">
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                     From="0" To="360" Duration="0:0:1" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </Grid.Triggers>
+                                </Grid>
+                                <TextBlock Text="{Binding GameText}" FontFamily="{StaticResource MonoFont}" FontSize="12" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Grid>
+
+                <Border Grid.Row="1" Style="{StaticResource Divider}" Margin="16,0" />
+
+                <!-- Friend: empty slot -->
+                <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center"
+                            Visibility="{Binding ShowFriendSlot, Converter={StaticResource Visible}}">
+                    <Button Style="{StaticResource BareButton}" Command="{Binding OpenConnectCommand}" HorizontalAlignment="Center" ToolTip="Connect to a friend" AutomationProperties.Name="Connect a friend">
+                        <Grid Width="76" Height="76">
+                            <Ellipse x:Name="AddRing" Stroke="{StaticResource MutedBrush}" StrokeThickness="2" StrokeDashArray="3 2" />
+                            <TextBlock Text="&#xE710;" FontFamily="{StaticResource IconFont}" FontSize="22" Foreground="{StaticResource SubtleBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                    </Button>
+                    <TextBlock Text="Connect a friend" FontSize="15" HorizontalAlignment="Center" Margin="0,12,0,3" />
+                    <TextBlock Text="Swap codes over Discord" Style="{StaticResource Hint}" HorizontalAlignment="Center" />
+                </StackPanel>
+
+                <!-- Friend: connecting / connected -->
+                <StackPanel Grid.Row="2" VerticalAlignment="Center" HorizontalAlignment="Center"
+                            Visibility="{Binding ShowFriend, Converter={StaticResource Visible}}">
+                    <Button Style="{StaticResource BareButton}" Command="{Binding OpenConnectCommand}" HorizontalAlignment="Center" ToolTip="Connection" AutomationProperties.Name="Friend">
+                        <local:Avatar Width="76" Height="76" InitialSize="30"
+                                      Fill="{Binding FriendFill}" Initial="{Binding FriendInitial}"
+                                      Talking="{Binding FriendTalking}" RingBrush="{Binding FriendRing}"
+                                      ShowBadge="{Binding FriendBadge}" BadgeGlyph="{Binding FriendBadgeGlyph}" BadgeBrush="{Binding FriendBadgeBrush}" />
+                    </Button>
+                    <TextBlock Text="{Binding FriendName}" FontSize="16" HorizontalAlignment="Center" Margin="0,10,0,2" TextTrimming="CharacterEllipsis" MaxWidth="240" />
+                    <TextBlock Text="{Binding FriendDetail}" Foreground="{StaticResource SubtleBrush}" HorizontalAlignment="Center" />
+                    <Grid Width="120" Height="4" Margin="0,10,0,0" ToolTip="How loud your friend is right now"
+                          Visibility="{Binding FriendConnected, Converter={StaticResource Visible}}">
+                        <Border Background="{StaticResource LineBrush}" CornerRadius="2" />
+                        <Border Background="{StaticResource PrimaryBrush}" CornerRadius="2" HorizontalAlignment="Left" Width="{Binding FriendBarWidth}" />
+                    </Grid>
+                </StackPanel>
+
+                <!-- Mic bar -->
+                <Border Grid.Row="3" Background="{StaticResource TitleBarBrush}" Padding="12,9">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="&#xE720;" FontFamily="{StaticResource IconFont}" FontSize="14" VerticalAlignment="Center">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource MutedBrush}" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Transmitting}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource TalkBrush}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <local:LevelBar Grid.Column="1" Height="6" Margin="10,0" VerticalAlignment="Center"
+                                        LevelDb="{Binding MicLevelDb}" ThresholdDb="{Binding Threshold}"
+                                        ShowThreshold="{Binding VoiceActivation}" Active="{Binding Transmitting}" />
+                        <TextBlock Grid.Column="2" Text="{Binding TalkHint}" Foreground="{Binding TalkHintBrush}" FontSize="11" VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- ============ Settings (slides in from the left) ============ -->
+            <Grid Background="{StaticResource OverlayBrush}">
+                <Grid.RenderTransform>
+                    <TranslateTransform X="-300" />
+                </Grid.RenderTransform>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding SettingsOpen}" Value="True">
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="0:0:0.16">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="-300" Duration="0:0:0.13">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseIn" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.ExitActions>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="42" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid>
+                    <TextBlock Text="Settings" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    <Button Style="{StaticResource IconButton}" Content="&#xE72B;" HorizontalAlignment="Right" Margin="0,0,8,0"
+                            Command="{Binding CloseOverlayCommand}" ToolTip="Back" AutomationProperties.Name="Back" />
+                </Grid>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="18,0,10,18">
+                    <StackPanel>
+                        <!-- Audio -->
+                        <TextBlock Text="AUDIO" Style="{StaticResource SectionHeader}" Margin="0,2,0,4" />
+                        <TextBlock Text="Microphone" Style="{StaticResource Label}" />
+                        <ComboBox ItemsSource="{Binding Microphones}" SelectedItem="{Binding SelectedMic}" />
+                        <local:LevelBar Height="6" Margin="0,9,0,2"
+                                        LevelDb="{Binding MicLevelDb}" ThresholdDb="{Binding Threshold}"
+                                        ShowThreshold="{Binding VoiceActivation}" Active="{Binding Transmitting}" />
+                        <TextBlock Text="Speaker" Style="{StaticResource Label}" />
+                        <ComboBox ItemsSource="{Binding Outputs}" SelectedItem="{Binding SelectedOutput}" />
+                        <WrapPanel Margin="0,10,0,0">
+                            <RadioButton Content="Voice activity" IsChecked="{Binding VoiceActivation}" />
+                            <RadioButton Content="Push to talk" IsChecked="{Binding PushToTalkMode}" />
+                        </WrapPanel>
+                        <StackPanel Visibility="{Binding VoiceActivation, Converter={StaticResource Visible}}">
+                            <DockPanel>
+                                <TextBlock DockPanel.Dock="Right" Text="{Binding ThresholdText}" Style="{StaticResource Label}" />
+                                <TextBlock Text="Sensitivity (yellow line)" Style="{StaticResource Label}" />
+                            </DockPanel>
+                            <Slider Minimum="-70" Maximum="-10" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding Threshold}" />
+                        </StackPanel>
+                        <CheckBox Content="Noise suppression" IsChecked="{Binding NoiseSuppression}" Margin="0,8,0,0" />
+
+                        <Border Style="{StaticResource Divider}" Margin="0,14,0,0" />
+
+                        <!-- Shortcuts -->
+                        <TextBlock Text="SHORTCUTS" Style="{StaticResource SectionHeader}" />
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="8" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel>
+                                <TextBlock Text="Push to talk" Style="{StaticResource Label}" />
+                                <Button Content="{Binding PushToTalkKeyText}" Command="{Binding BindPushToTalkCommand}" Padding="8,7" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Text="Radio" Style="{StaticResource Label}" />
+                                <Button Content="{Binding RadioKeyText}" Command="{Binding BindRadioCommand}" Padding="8,7" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Style="{StaticResource Hint}" Margin="0,6,0,0"
+                                   Text="Click, then press a key, mouse button or controller button. Esc clears. Hold Radio to be heard anywhere." />
+
+                        <Border Style="{StaticResource Divider}" Margin="0,14,0,0" />
+
+                        <!-- Proximity -->
+                        <TextBlock Text="PROXIMITY" Style="{StaticResource SectionHeader}" />
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding FriendVolumeText}" Style="{StaticResource Label}" />
+                            <TextBlock Text="Friend volume" Style="{StaticResource Label}" />
+                        </DockPanel>
+                        <Slider Minimum="0" Maximum="200" TickFrequency="5" IsSnapToTickEnabled="True" Value="{Binding FriendVolume}" />
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding NearText}" Style="{StaticResource Label}" />
+                            <TextBlock Text="Full volume within" Style="{StaticResource Label}" />
+                        </DockPanel>
+                        <Slider Minimum="1" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding Near}" />
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding FarText}" Style="{StaticResource Label}" />
+                            <TextBlock Text="Silent beyond" Style="{StaticResource Label}" />
+                        </DockPanel>
+                        <Slider Minimum="6" Maximum="150" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding Far}" />
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding FloorText}" Style="{StaticResource Label}" />
+                            <TextBlock Text="Far-away volume" Style="{StaticResource Label}" />
+                        </DockPanel>
+                        <Slider Minimum="0" Maximum="50" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding Floor}" />
+
+                        <Border Style="{StaticResource Divider}" Margin="0,14,0,0" />
+
+                        <!-- Advanced -->
+                        <TextBlock Text="ADVANCED" Style="{StaticResource SectionHeader}" />
+                        <CheckBox Content="Walkie-talkie sound on radio" IsChecked="{Binding RadioEffect}" />
+                        <CheckBox Content="Normal chat in menus &amp; loading" IsChecked="{Binding FullVolumeOutsideWorld}" />
+                        <CheckBox Content="Swap left / right" IsChecked="{Binding SwapLeftRight}" />
+
+                        <TextBlock Text="Test beacon" Style="{StaticResource Label}" Margin="0,10,0,2" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Drop it in-game and talk: you'll hear yourself from that spot. Walk away and turn the camera." />
+                        <StackPanel Orientation="Horizontal" Margin="0,7,0,0">
+                            <Button Content="Drop here" Command="{Binding DropBeaconCommand}" />
+                            <Button Content="Remove" Command="{Binding ClearBeaconCommand}" Margin="6,0,0,0" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding BeaconText}" Style="{StaticResource Hint}" Margin="0,5,0,0" />
+
+                        <StackPanel Orientation="Horizontal" Margin="0,12,0,4">
+                            <Button Content="Open log folder" Command="{Binding OpenLogsCommand}" />
+                        </StackPanel>
+                        <CheckBox Content="Show debug info" IsChecked="{Binding ShowDebug}" />
+                        <TextBox Text="{Binding DebugText, Mode=OneWay}" IsReadOnly="True" FontFamily="{StaticResource MonoFont}" FontSize="10"
+                                 TextWrapping="Wrap" MaxHeight="260" VerticalScrollBarVisibility="Auto" Margin="0,6,0,0"
+                                 Visibility="{Binding ShowDebug, Converter={StaticResource Visible}}" />
+
+                        <TextBlock Text="{Binding Version}" Style="{StaticResource Hint}" HorizontalAlignment="Center" Margin="0,18,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+
+            <!-- ============ Connect (slides in from the right) ============ -->
+            <Grid Background="{StaticResource OverlayBrush}">
+                <Grid.RenderTransform>
+                    <TranslateTransform X="300" />
+                </Grid.RenderTransform>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding ConnectOpen}" Value="True">
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="0" Duration="0:0:0.16">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)" To="300" Duration="0:0:0.13">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseIn" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.ExitActions>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="42" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Grid>
+                    <Button Style="{StaticResource IconButton}" Content="&#xE72B;" HorizontalAlignment="Left" Margin="8,0,0,0"
+                            Command="{Binding CloseOverlayCommand}" ToolTip="Back" AutomationProperties.Name="Back" />
+                    <TextBlock Text="Connect" FontSize="16" FontWeight="SemiBold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Grid>
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="18,0,10,18">
+                    <StackPanel>
+                        <TextBlock Text="YOUR CODE" Style="{StaticResource SectionHeader}" Margin="0,2,0,4" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Send this to your friend, e.g. on Discord." />
+                        <TextBox Text="{Binding MyCode, Mode=OneWay}" IsReadOnly="True" FontFamily="{StaticResource MonoFont}" FontSize="12"
+                                 TextWrapping="Wrap" Margin="0,7,0,0" />
+                        <Button Content="{Binding CopyText}" Command="{Binding CopyCodeCommand}" Margin="0,7,0,0" />
+
+                        <TextBlock Text="FRIEND'S CODE" Style="{StaticResource SectionHeader}" Margin="0,18,0,4" />
+                        <TextBox Text="{Binding FriendCodeInput, UpdateSourceTrigger=PropertyChanged}" Tag="Paste your friend's SPX-… code"
+                                 FontFamily="{StaticResource MonoFont}" FontSize="12" TextWrapping="Wrap" MinHeight="54" />
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button Content="Connect" Style="{StaticResource PrimaryButton}" Command="{Binding ConnectCommand}" />
+                            <Button Grid.Column="1" Content="Disconnect" Command="{Binding DisconnectCommand}" Margin="6,0,0,0"
+                                    Visibility="{Binding CanDisconnect, Converter={StaticResource Visible}}" />
+                        </Grid>
+                        <TextBlock Text="{Binding ConnectError}" Foreground="{StaticResource ErrorBrush}" TextWrapping="Wrap" Margin="0,8,0,0"
+                                   Visibility="{Binding HasConnectError, Converter={StaticResource Visible}}" />
+                        <TextBlock Text="{Binding LinkStatus}" Foreground="{Binding LinkStatusBrush}" TextWrapping="Wrap" Margin="0,8,0,0" FontSize="12" />
+
+                        <Border Style="{StaticResource Divider}" Margin="0,16,0,0" />
+                        <TextBlock Text="IF CODES DON'T CONNECT" Style="{StaticResource SectionHeader}" />
+                        <TextBlock Style="{StaticResource Hint}" Text="Enter your friend's Tailscale IP or port-forwarded address, then press Connect again." />
+                        <TextBox Text="{Binding FriendAddressInput, UpdateSourceTrigger=PropertyChanged}" Tag="e.g. 100.64.1.2:47800" Margin="0,7,0,0" />
+                    </StackPanel>
+                </ScrollViewer>
+            </Grid>
+        </Grid>
+    </Grid>
+</Window>

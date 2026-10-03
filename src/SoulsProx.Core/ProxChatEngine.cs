@@ -42,6 +42,8 @@ public sealed class ProxChatEngine : IDisposable
     private readonly ConcurrentQueue<(long Due, uint Seq, byte[] Data, bool Radio)> _beaconQueue = new();
     private readonly object _audioLock = new();
     private readonly Timer _tick;
+    private readonly Timer _saveTimer;
+    private static readonly TimeSpan SaveDelay = TimeSpan.FromMilliseconds(750);
 
     private MicCapture? _mic;
     private AudioOutput? _output;
@@ -79,6 +81,7 @@ public sealed class ProxChatEngine : IDisposable
 
         _friendStatus = new FriendStatus(LinkState.Idle, null, null, default, false, false);
         _tick = new Timer(_ => Tick(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        _saveTimer = new Timer(_ => Settings.Save(_settingsPath), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
     }
 
     public AppSettings Settings { get; private set; }
@@ -89,6 +92,8 @@ public sealed class ProxChatEngine : IDisposable
     public bool Transmitting { get; private set; }
     public string MicStatus { get; private set; } = "";
     public string OutputStatus { get; private set; } = "";
+    public bool MicOk { get; private set; }
+    public bool OutputOk { get; private set; }
     public FriendStatus Friend => Volatile.Read(ref _friendStatus);
     public SpatialResult? Beacon => _beaconStatus;
     public bool BeaconActive => _beaconPosition is not null;
@@ -133,12 +138,15 @@ public sealed class ProxChatEngine : IDisposable
         UpdateSettings(Settings with { FriendCode = null });
     }
 
-    /// <summary>Saves new settings and applies them, reopening audio devices only if they changed.</summary>
+    /// <summary>
+    /// Applies new settings immediately, reopening audio devices only if they changed. Saving to disk is
+    /// debounced so dragging a slider doesn't rewrite the file dozens of times.
+    /// </summary>
     public void UpdateSettings(AppSettings updated)
     {
         var old = Settings;
         Settings = updated;
-        updated.Save(_settingsPath);
+        _saveTimer.Change(SaveDelay, Timeout.InfiniteTimeSpan);
         _proximity = updated.ToProximity();
         ApplyToComponents(updated);
         if (old.MicDeviceId != updated.MicDeviceId || old.OutputDeviceId != updated.OutputDeviceId || old.NoiseSuppression != updated.NoiseSuppression)
@@ -172,10 +180,12 @@ public sealed class ProxChatEngine : IDisposable
                 _output.AddInput(_friendVoice);
                 _output.AddInput(_beaconVoice);
                 OutputStatus = _output.DeviceName;
+                OutputOk = true;
             }
             catch (Exception ex)
             {
                 OutputStatus = $"Couldn't open speakers/headphones: {ex.Message}";
+                OutputOk = false;
                 Log.Error("Output device", ex);
             }
 
@@ -185,10 +195,12 @@ public sealed class ProxChatEngine : IDisposable
                 _mic.FrameCaptured += OnMicFrame;
                 _mic.Start();
                 MicStatus = _mic.DeviceName;
+                MicOk = true;
             }
             catch (Exception ex)
             {
                 MicStatus = $"Couldn't open microphone: {ex.Message}";
+                MicOk = false;
                 Log.Error("Microphone", ex);
             }
             Log.Info($"Audio: mic '{MicStatus}', output '{OutputStatus}'");
@@ -308,6 +320,8 @@ public sealed class ProxChatEngine : IDisposable
     public void Dispose()
     {
         _tick.Dispose();
+        _saveTimer.Dispose();
+        Settings.Save(_settingsPath);
         lock (_audioLock)
         {
             _mic?.Dispose();
